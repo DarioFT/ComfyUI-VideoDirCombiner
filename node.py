@@ -156,13 +156,12 @@ class VideoDirCombinerNode:
                         'acodec': 'aac',
                         'vcodec': 'copy',
                     }
-                    # Pass shortest as a flag without value
                     stream = ffmpeg.output(
                         stream,
                         audio_stream,
                         output_path,
                         **output_args,
-                        shortest=None  # This makes it a flag without value
+                        shortest=None
                     )
                 else:
                     stream = ffmpeg.output(stream, output_path, c='copy')
@@ -201,7 +200,7 @@ class VideoDirCombinerNode:
                             audio_stream,
                             output_path,
                             **output_args,
-                            shortest=None  # This makes it a flag without value
+                            shortest=None
                         )
                     else:
                         stream = ffmpeg.output(joined, output_path)
@@ -233,7 +232,7 @@ class VideoDirCombinerNode:
                             audio_stream,
                             output_path,
                             **output_args,
-                            shortest=None  # This makes it a flag without value
+                            shortest=None
                         )
                     else:
                         stream = ffmpeg.output(current, output_path)
