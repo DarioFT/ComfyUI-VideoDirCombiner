@@ -39,9 +39,7 @@ class VideoDirCombinerNode:
                     "default": True,
                     "label": "Sort files alphabetically"
                 }),
-                "audio": ("AUDIO", {
-                    "default": None,
-                }),
+                "music_track": ("AUDIO",),  # VideoHelperSuite audio format
             }
         }
     
@@ -52,7 +50,7 @@ class VideoDirCombinerNode:
 
     def __init__(self):
         self.output_dir = self._get_output_directory()
-        self.ffmpeg_path = "ffmpeg"  # Now using system ffmpeg
+        self.ffmpeg_path = "ffmpeg"
 
     @staticmethod
     def _get_output_directory():
@@ -68,13 +66,57 @@ class VideoDirCombinerNode:
         video_info = next(s for s in probe['streams'] if s['codec_type'] == 'video')
         return float(probe['format']['duration'])
 
+    def _process_vhs_audio(self, audio_dict):
+        """Process VideoHelperSuite audio format."""
+        if not audio_dict or 'waveform' not in audio_dict or 'sample_rate' not in audio_dict:
+            return None, None
+
+        # Create a temporary file for the audio
+        temp_audio = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+        
+        try:
+            # Convert waveform to raw PCM data
+            channels = audio_dict['waveform'].size(1)
+            audio_data = audio_dict['waveform'].squeeze(0).transpose(0, 1).numpy().tobytes()
+            
+            # Use ffmpeg to create a WAV file
+            args = [
+                self.ffmpeg_path,
+                '-y',  # Overwrite output file if it exists
+                '-f', 'f32le',  # Input format (32-bit float PCM)
+                '-ar', str(audio_dict['sample_rate']),  # Sample rate
+                '-ac', str(channels),  # Number of channels
+                '-i', '-',  # Read from stdin
+                '-acodec', 'pcm_s16le',  # Output codec
+                temp_audio.name
+            ]
+            
+            process = subprocess.Popen(
+                args,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            
+            stdout, stderr = process.communicate(input=audio_data)
+            
+            if process.returncode != 0:
+                print(f"Warning: Failed to process audio: {stderr.decode()}")
+                return None, None
+            
+            return temp_audio.name, temp_audio
+            
+        except Exception as e:
+            print(f"Warning: Error processing audio: {str(e)}")
+            return None, None
+
     def combine_videos(self, directory_path: str, output_filename: str, 
                       file_pattern: str, transition: str = "none", 
                       transition_duration: float = 0.5,
                       sort_files: bool = True, 
-                      audio: dict = None) -> tuple:
+                      music_track: dict = None) -> tuple:
         """
-        Combine all videos in the specified directory with optional audio and transitions.
+        Combine all videos in the specified directory and add a music track.
         """
         # Verify inputs
         if not os.path.exists(directory_path):
@@ -88,12 +130,12 @@ class VideoDirCombinerNode:
         if sort_files:
             video_files.sort()
 
-        # Handle audio input
+        # Process VHS audio format
         audio_path = None
-        if audio is not None and "audio_path" in audio:
-            audio_path = audio["audio_path"]
-            if not os.path.exists(audio_path):
-                raise ValueError(f"Audio file {audio_path} does not exist")
+        temp_audio = None
+        
+        if music_track is not None:
+            audio_path, temp_audio = self._process_vhs_audio(music_track)
         
         # Set output path
         output_path = os.path.join(self.output_dir, output_filename)
@@ -109,10 +151,19 @@ class VideoDirCombinerNode:
                 stream = ffmpeg.input(temp_list_path, f='concat', safe=0)
                 
                 if audio_path:
+                    # Calculate video duration for audio padding
+                    total_duration = sum(self._get_video_duration(str(v)) for v in video_files)
+                    
                     audio_stream = ffmpeg.input(audio_path)
-                    stream = ffmpeg.output(stream, audio_stream, output_path,
-                                        acodec='aac', vcodec='copy',
-                                        shortest=None)
+                    stream = ffmpeg.output(
+                        stream,
+                        audio_stream,
+                        output_path,
+                        acodec='aac',
+                        vcodec='copy',
+                        shortest=None,
+                        af=f'apad=whole_dur={total_duration}'
+                    )
                 else:
                     stream = ffmpeg.output(stream, output_path, c='copy')
                 
@@ -139,14 +190,15 @@ class VideoDirCombinerNode:
                         offset=offset
                     )
                     
-                    # Setup output
+                    # Setup output with audio
                     if audio_path:
                         audio_stream = ffmpeg.input(audio_path)
                         stream = ffmpeg.output(
                             joined,
                             audio_stream,
                             output_path,
-                            acodec='aac'
+                            acodec='aac',
+                            af=f'apad=whole_dur={total_duration}'
                         )
                     else:
                         stream = ffmpeg.output(joined, output_path)
@@ -167,14 +219,15 @@ class VideoDirCombinerNode:
                             offset=offset
                         )
                     
-                    # Setup output
+                    # Setup output with audio
                     if audio_path:
                         audio_stream = ffmpeg.input(audio_path)
                         stream = ffmpeg.output(
                             current,
                             audio_stream,
                             output_path,
-                            acodec='aac'
+                            acodec='aac',
+                            af=f'apad=whole_dur={total_duration}'
                         )
                     else:
                         stream = ffmpeg.output(current, output_path)
@@ -189,9 +242,14 @@ class VideoDirCombinerNode:
             raise RuntimeError(f"FFmpeg error: {e.stderr.decode()}")
             
         finally:
+            # Clean up temporary files
             if (transition == "none" or len(video_files) < 2) and 'temp_list_path' in locals():
                 if os.path.exists(temp_list_path):
                     os.unlink(temp_list_path)
+            if temp_audio is not None:
+                temp_audio.close()
+                if os.path.exists(temp_audio.name):
+                    os.unlink(temp_audio.name)
         
         return (output_path,)
 
