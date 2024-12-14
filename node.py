@@ -151,18 +151,18 @@ class VideoDirCombinerNode:
                 stream = ffmpeg.input(temp_list_path, f='concat', safe=0)
                 
                 if audio_path:
-                    # Calculate video duration for audio padding
-                    total_duration = sum(self._get_video_duration(str(v)) for v in video_files)
-                    
                     audio_stream = ffmpeg.input(audio_path)
+                    output_args = {
+                        'acodec': 'aac',
+                        'vcodec': 'copy',
+                    }
+                    # Pass shortest as a flag without value
                     stream = ffmpeg.output(
                         stream,
                         audio_stream,
                         output_path,
-                        acodec='aac',
-                        vcodec='copy',
-                        shortest=None,
-                        af=f'apad=whole_dur={total_duration}'
+                        **output_args,
+                        shortest=None  # This makes it a flag without value
                     )
                 else:
                     stream = ffmpeg.output(stream, output_path, c='copy')
@@ -193,12 +193,15 @@ class VideoDirCombinerNode:
                     # Setup output with audio
                     if audio_path:
                         audio_stream = ffmpeg.input(audio_path)
+                        output_args = {
+                            'acodec': 'aac',
+                        }
                         stream = ffmpeg.output(
                             joined,
                             audio_stream,
                             output_path,
-                            acodec='aac',
-                            af=f'apad=whole_dur={total_duration}'
+                            **output_args,
+                            shortest=None  # This makes it a flag without value
                         )
                     else:
                         stream = ffmpeg.output(joined, output_path)
@@ -222,12 +225,15 @@ class VideoDirCombinerNode:
                     # Setup output with audio
                     if audio_path:
                         audio_stream = ffmpeg.input(audio_path)
+                        output_args = {
+                            'acodec': 'aac',
+                        }
                         stream = ffmpeg.output(
                             current,
                             audio_stream,
                             output_path,
-                            acodec='aac',
-                            af=f'apad=whole_dur={total_duration}'
+                            **output_args,
+                            shortest=None  # This makes it a flag without value
                         )
                     else:
                         stream = ffmpeg.output(current, output_path)
@@ -239,7 +245,10 @@ class VideoDirCombinerNode:
             stream.overwrite_output().run()
             
         except ffmpeg.Error as e:
-            raise RuntimeError(f"FFmpeg error: {e.stderr.decode()}")
+            if e.stderr is not None:
+                raise RuntimeError(f"FFmpeg error: {e.stderr.decode()}")
+            else:
+                raise RuntimeError(f"FFmpeg error: {str(e)}")
             
         finally:
             # Clean up temporary files
