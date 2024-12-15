@@ -4,8 +4,7 @@ setup(
     name="ComfyUI-VideoDirCombiner",
     version="0.1.0",
     description="ComfyUI custom node for combining multiple videos from a directory",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="Dario Fernandez Torre",
     packages=find_packages(),
     install_requires=[
         "numpy",

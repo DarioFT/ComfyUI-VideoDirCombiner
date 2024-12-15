@@ -238,7 +238,7 @@ class VideoDirCombinerNode:
                         stream = ffmpeg.output(current, output_path)
 
             # Print the ffmpeg command for debugging
-            print("FFmpeg command:", ' '.join(stream.compile()))
+            # print("FFmpeg command:", ' '.join(stream.compile()))
             
             # Run the ffmpeg command
             stream.overwrite_output().run()
