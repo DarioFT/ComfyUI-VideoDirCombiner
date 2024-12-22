@@ -10,6 +10,6 @@ Repository = "https://github.com/DarioFT/ComfyUI-VideoDirCombiner"
 #  Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
-PublisherId = ""
+PublisherId = "darioft"
 DisplayName = "ComfyUI-VideoDirCombiner"
 Icon = ""
