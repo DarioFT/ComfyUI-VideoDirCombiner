@@ -3,7 +3,6 @@ import subprocess
 from pathlib import Path
 import tempfile
 import ffmpeg
-import re
 
 class VideoDirCombinerNode:
     @classmethod
@@ -56,9 +55,13 @@ class VideoDirCombinerNode:
     def _get_output_directory():
         try:
             import folder_paths
-            return folder_paths.get_output_directory()
+            output_dir = folder_paths.get_output_directory()
+            print(f"ComfyUI output directory: {output_dir}")
+            return output_dir
         except ImportError:
-            return os.getcwd()
+            fallback_dir = os.getcwd()
+            print(f"Failed to get ComfyUI output directory, using fallback: {fallback_dir}")
+            return fallback_dir
 
     def _get_video_duration(self, video_path):
         """Get duration of video file using ffmpeg."""
@@ -119,8 +122,10 @@ class VideoDirCombinerNode:
         Combine all videos in the specified directory and add a music track.
         """
         # Verify inputs
+        print(f"Validating input directory path: {directory_path}")
+        print(f"Absolute path: {os.path.abspath(directory_path)}")
         if not os.path.exists(directory_path):
-            raise ValueError(f"Directory {directory_path} does not exist")
+            raise ValueError(f"Directory {directory_path} does not exist (absolute path: {os.path.abspath(directory_path)})")
         
         # Get video files
         video_files = list(Path(directory_path).glob(file_pattern))
