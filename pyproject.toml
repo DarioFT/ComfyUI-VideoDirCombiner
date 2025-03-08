@@ -1,0 +1,15 @@
+[project]
+name = "comfyui-videodircombiner"
+description = "A custom node for ComfyUI that combines multiple videos from a directory with optional transitions and background music. Perfect for batch processing and creating seamless video compilations."
+version = "1.0.0"
+license = {file = "LICENSE"}
+dependencies = ["ffmpeg-python"]
+
+[project.urls]
+Repository = "https://github.com/DarioFT/ComfyUI-VideoDirCombiner"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = "darioft"
+DisplayName = "ComfyUI-VideoDirCombiner"
+Icon = ""
